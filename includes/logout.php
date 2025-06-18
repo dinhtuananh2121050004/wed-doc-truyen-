@@ -1,20 +1,12 @@
 <?php
 session_start();
 
-// Check if user is admin (for logging purposes)
-$was_admin = isset($_SESSION['admin_role']) || (isset($_SESSION['role']) && $_SESSION['role'] === 'admin');
-
 // Invalidate the access key in the database
-if (isset($_SESSION['user_id']) || isset($_SESSION['admin_id'])) {
+if (isset($_SESSION['user_id']) && isset($_SESSION['access_key'])) {
     try {
-        // Include config.php BEFORE database.php to define the DB constants
-        require_once '../includes/config.php';
-        require_once '../includes/database.php';
-        
+        require_once 'includes/database.php';
         $db = new Database();
         $conn = $db->getConnection();
-        
-        $user_id = isset($_SESSION['admin_id']) ? $_SESSION['admin_id'] : $_SESSION['user_id'];
         
         // Check if access_key column exists
         $stmt = $conn->query("SHOW COLUMNS FROM users LIKE 'access_key'");
@@ -22,11 +14,11 @@ if (isset($_SESSION['user_id']) || isset($_SESSION['admin_id'])) {
         
         if ($column_exists) {
             $stmt = $conn->prepare("UPDATE users SET access_key = NULL WHERE id = ?");
-            $stmt->execute([$user_id]);
+            $stmt->execute([$_SESSION['user_id']]);
         }
     } catch (PDOException $e) {
         // Log error but continue with logout process
-        error_log("Error during admin logout: " . $e->getMessage());
+        error_log("Error during logout: " . $e->getMessage());
     }
 }
 
@@ -47,18 +39,11 @@ setcookie('access_key', '', time() - 3600, '/');
 setcookie('user_data', '', time() - 3600, '/');
 setcookie('remember_token', '', time() - 3600, '/');
 setcookie('remember_user', '', time() - 3600, '/');
-setcookie('admin_token', '', time() - 3600, '/');
-setcookie('admin_session', '', time() - 3600, '/');
 
 // Destroy the session
 session_destroy();
 
-// Log the admin logout (optional)
-if ($was_admin) {
-    error_log("Admin user logged out successfully");
-}
-
-// Redirect to the main site home page
-header("Location: ../index.php");
+// Redirect to home page
+header("Location: index.php");
 exit();
 ?>
